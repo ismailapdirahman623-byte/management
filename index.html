@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="so">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Management System</title>
+
+<style>
+*{box-sizing:border-box;font-family:Arial,sans-serif}
+body{margin:0;padding:18px;background:#f1f5f9;color:#1e293b}
+header{background:#123c69;color:white;padding:24px;text-align:center;border-radius:12px}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
+button{padding:10px 14px;border:0;border-radius:6px;cursor:pointer;font-weight:bold}
+nav button{flex:1;background:#2563eb;color:white}
+section{background:white;padding:20px;border-radius:12px;margin-bottom:18px;box-shadow:0 2px 8px #0000000d}
+h2{font-size:20px;color:#123c69}
+h3{margin-top:24px}
+input{padding:11px;border:1px solid #cbd5e1;border-radius:6px;width:100%}
+label{font-size:13px;font-weight:bold}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field{display:grid;gap:7px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}
+.primary{background:#2563eb;color:white}
+.secondary{background:#64748b;color:white}
+.edit{background:#f59e0b;color:white}
+.danger{background:#dc2626;color:white}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.card{background:#eff6ff;padding:16px;border-radius:9px}
+.card strong{font-size:25px;color:#123c69;display:block;margin-top:10px}
+.hidden{display:none!important}
+.table-wrap{overflow-x:auto;margin-top:14px}
+table{border-collapse:collapse;width:100%;min-width:600px}
+th,td{text-align:left;padding:11px;border-bottom:1px solid #e2e8f0}
+th{background:#eff6ff}
+.attendance-buttons{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.att-btn{min-width:100px;border:2px solid #cbd5e1;background:white;color:#334155}
+.att-btn.selected-present{background:#15803d;color:white;border-color:#15803d}
+.att-btn.selected-absent{background:#dc2626;color:white;border-color:#dc2626}
+.status-present{color:#15803d;font-weight:bold}
+.status-absent{color:#dc2626;font-weight:bold}
+.small{font-size:13px;color:#64748b}
+.notice{padding:13px;background:#fff7ed;color:#9a3412;border-radius:8px;margin:12px 0}
+@media(max-width:550px){
+ body{padding:9px}
+ section{padding:13px}
+ .form-grid{grid-template-columns:1fr}
+ nav button{min-width:40%}
+ .att-btn{min-width:85px;padding:9px 7px}
+}
+@media print{
+ nav,.actions,.no-print,header{display:none!important}
+ body{background:white;padding:0}
+ .hidden{display:none!important}
+ section{box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+<h1>Student Management System</h1>
+<p>Registration • Attendance • Follow-up • Reports</p>
+<p>Xaadiriska: Sabti ilaa Arbaco</p>
+</header>
+
+<nav>
+<button onclick="show('dashboard')">Dashboard</button>
+<button onclick="show('students')">Students</button>
+<button onclick="show('attendance')">Attendance</button>
+<button onclick="show('reports')">Weekly & Monthly</button>
+<button onclick="backupData()">Backup Xogta</button>
+<button onclick="document.getElementById('restoreFile').click()">Restore Xogta</button>
+<input type="file" id="restoreFile" accept=".json" class="hidden" onchange="restoreData(event)">
+</nav>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+<section>
+<h2>Dashboard</h2>
+<div class="cards">
+<div class="card">Total Students<strong id="total">0</strong></div>
+<div class="card">Sax Today<strong id="present">0</strong></div>
+<div class="card">Khalad Today<strong id="absent">0</strong></div>
+<div class="card">Attendance %<strong id="todayPct">0%</strong></div>
+</div>
+<p class="small">Xaadiriska maanta waxaa la sameeyaa Sabti ilaa Arbaco oo keliya.</p>
+</section>
+</div>
+
+<!-- STUDENTS -->
+<div id="students" class="hidden">
+<section>
+<h2 id="formTitle">Student Registration</h2>
+<form id="studentForm">
+<div class="form-grid">
+<div class="field">
+<label for="studentID">Student ID *</label>
+<input id="studentID" required placeholder="STD001">
+</div>
+<div class="field">
+<label for="studentName">Student Full Name *</label>
+<input id="studentName" required placeholder="Full name">
+</div>
+<div class="field">
+<label for="dateOfBirth">Date of Birth *</label>
+<input id="dateOfBirth" type="date" required>
+</div>
+<div class="field">
+<label for="motherPhone">Mother's Phone *</label>
+<input id="motherPhone" type="tel" required placeholder="+252...">
+</div>
+</div>
+<div class="actions">
+<button class="primary" type="submit" id="saveBtn">Save Student</button>
+<button class="secondary" type="reset">Clear Form</button>
+</div>
+</form>
+</section>
+
+<section>
+<h2>Registered Students</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>ID</th><th>Name</th><th>Date of Birth</th>
+<th>Mother's Phone</th><th>Actions</th>
+</tr>
+</thead>
+<tbody id="studentTable"></tbody>
+</table>
+</div>
+</section>
+</div>
+
+<!-- ATTENDANCE -->
+<div id="attendance" class="hidden">
+<section>
+<h2>Attendance — Sax / Khalad</h2>
+<p class="small">
+Dooro taariikh. Xaadiriska waxaa la samayn karaa Sabti, Axad,
+Isniin, Talaado iyo Arbaco. Khamiis iyo Jimce waa maalmo fasax ah.
+</p>
+
+<div class="field">
+<label for="attDate">Taariikhda Xadiriska</label>
+<input type="date" id="attDate" onchange="loadAttendance()">
+</div>
+
+<div id="attendanceNotice" class="notice hidden"></div>
+
+<div id="attendanceControls" class="actions">
+<button class="primary" onclick="loadAttendance()">Load Students</button>
+<button class="primary" onclick="markAll('Present')">Dhammaan Sax</button>
+<button class="danger" onclick="markAll('Absent')">Dhammaan Khalad</button>
+<button class="primary" onclick="saveAttendance()">Save Attendance</button>
+</div>
+
+<div class="cards">
+<div class="card">Sax<strong id="dayPresent">0</strong></div>
+<div class="card">Khalad<strong id="dayAbsent">0</strong></div>
+<div class="card">Aan la calaamadin<strong id="dayUnmarked">0</strong></div>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Student ID</th>
+<th>Student Name</th>
+<th>Attendance — Sax / Khalad</th>
+</tr>
+</thead>
+<tbody id="attTable"></tbody>
+</table>
+</div>
+</section>
+
+<section>
+<h2>Attendance Follow-up</h2>
+<div class="field">
+<label for="followDate">Dooro taariikhda</label>
+<input type="date" id="followDate" onchange="showFollowup()">
+</div>
+<div id="followNotice" class="notice hidden"></div>
+<div class="actions">
+<button class="primary" onclick="showFollowup()">View Follow-up</button>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>Date</th><th>Student ID</th><th>Name</th><th>Status</th></tr>
+</thead>
+<tbody id="followTable"></tbody>
+</table>
+</div>
+</section>
+</div>
+
+<!-- REPORTS -->
+<div id="reports" class="hidden">
+<section>
+<h2>Weekly & Monthly Attendance Report</h2>
+<p class="small">
+Warbixinnadu waxay tirinayaan xaadiriska Sabti ilaa Arbaco oo keliya.
+</p>
+<div class="field">
+<label for="reportDate">Dooro taariikh ku jirta toddobaadka ama bisha</label>
+<input type="date" id="reportDate">
+</div>
+<div class="actions">
+<button class="primary" onclick="generateReports()">Generate Report</button>
+<button class="primary" onclick="window.print()">Print Report</button>
+</div>
+
+<h3>Weekly Report — Sabti ilaa Arbaco</h3>
+<p id="weekRange" class="small"></p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Student</th><th>Sax</th><th>Khalad</th><th>Attendance %</th>
+</tr>
+</thead>
+<tbody id="weeklyTable"></tbody>
+</table>
+</div>
+
+<h3>Monthly Report</h3>
+<p id="monthRange" class="small"></p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Student</th><th>Sax</th><th>Khalad</th><th>Attendance %</th>
+</tr>
+</thead>
+<tbody id="monthlyTable"></tbody>
+</table>
+</div>
+<p class="small">
+Boqolleydu waxay ku salaysan tahay maalmaha Sabti ilaa Arbaco
+ee xadiriska la diiwaangeliyey oo keliya.
+</p>
+</section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+let students = JSON.parse(localStorage.getItem("sms_students") || "[]");
+let records = JSON.parse(localStorage.getItem("sms_attendance") || "{}");
+let editIndex = -1;
+
+function today(){
+ const d = new Date();
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+// Sabti, Axad, Isniin, Talaado iyo Arbaco
+// JavaScript: Sabti=6, Axad=0, Isniin=1, Talaado=2, Arbaco=3
+function isAttendanceDay(date){
+ if(!date) return false;
+ const day = new Date(date + "T12:00:00").getDay();
+ return [6,0,1,2,3].includes(day);
+}
+
+function dayName(date){
+ if(!date) return "";
+ const names = [
+  "Axad","Isniin","Talaado","Arbaco",
+  "Khamiis","Jimce","Sabti"
+ ];
+ return names[new Date(date + "T12:00:00").getDay()];
+}
+
+$("attDate").value = today();
+$("followDate").value = today();
+$("reportDate").value = today();
+
+function persist(){
+ localStorage.setItem("sms_students", JSON.stringify(students));
+ localStorage.setItem("sms_attendance", JSON.stringify(records));
+}
+
+function show(id){
+ ["dashboard","students","attendance","reports"].forEach(x =>
+  $(x).classList.add("hidden")
+ );
+ $(id).classList.remove("hidden");
+
+ if(id==="students") renderStudents();
+ if(id==="attendance") loadAttendance();
+ if(id==="dashboard") updateDashboard();
+ if(id==="reports") generateReports();
+}
+
+$("studentForm").addEventListener("submit", function(e){
+ e.preventDefault();
+
+ const s = {
+  id:$("studentID").value.trim(),
+  name:$("studentName").value.trim(),
+  dob:$("dateOfBirth").value,
+  phone:$("motherPhone").value.trim()
+ };
+
+ const duplicate = students.some((x,i) =>
+  x.id.toLowerCase()===s.id.toLowerCase() && i!==editIndex
+ );
+
+ if(duplicate){
+  alert("Student ID-kan hor ayaa loo isticmaalay!");
+  return;
+ }
+
+ if(editIndex >= 0){
+  const old = students[editIndex];
+
+  if(old.id !== s.id){
+   Object.values(records).forEach(day => {
+    if(day[old.id] !== undefined){
+     day[s.id] = day[old.id];
+     delete day[old.id];
+    }
+   });
+  }
+
+  students[editIndex] = s;
+  alert("Xogta ardayga waa la cusboonaysiiyey.");
+ }else{
+  students.push(s);
+  alert("Ardayga waa la diiwaangeliyey.");
+ }
+
+ editIndex = -1;
+ persist();
+ this.reset();
+ $("saveBtn").textContent = "Save Student";
+ $("formTitle").textContent = "Student Registration";
+
+ renderStudents();
+ updateDashboard();
+ loadAttendance();
+ generateReports();
+});
+
+$("studentForm").addEventListener("reset", () => {
+ editIndex = -1;
+ $("saveBtn").textContent = "Save Student";
+ $("formTitle").textContent = "Student Registration";
+});
+
+function renderStudents(){
+ $("studentTable").innerHTML = "";
+
+ students.forEach((s,i) => {
+  const tr = document.createElement("tr");
+
+  [s.id,s.name,s.dob||"",s.phone||""].forEach(v => {
+   const td = document.createElement("td");
+   td.textContent = v;
+   tr.appendChild(td);
+  });
+
+  const td = document.createElement("td");
+  const edit = document.createElement("button");
+  edit.textContent = "Edit";
+  edit.className = "edit";
+
+  edit.onclick = () => {
+   $("studentID").value = s.id;
+   $("studentName").value = s.name;
+   $("dateOfBirth").value = s.dob||"";
+   $("motherPhone").value = s.phone||"";
+
+   editIndex = i;
+   $("saveBtn").textContent = "Update Student";
+   $("formTitle").textContent = "Edit Student";
+   window.scrollTo({top:0,behavior:"smooth"});
+  };
+
+  const del = document.createElement("button");
+  del.textContent = "Delete";
+  del.className = "danger";
+  del.style.marginLeft = "5px";
+
+  del.onclick = () => {
+   if(!confirm("Ma tirtiraysaa ardaygan?")) return;
+
+   const removed = students[i];
+   students.splice(i,1);
+
+   Object.values(records).forEach(day => delete day[removed.id]);
+
+   editIndex = -1;
+   persist();
+   renderStudents();
+   updateDashboard();
+   loadAttendance();
+   generateReports();
+  };
+
+  td.append(edit,del);
+  tr.appendChild(td);
+  $("studentTable").appendChild(tr);
+ });
+}
+
+function getStatus(date,id){
+ // Khamiis iyo Jimce xaadiris ma leh
+ if(!isAttendanceDay(date)) return "";
+
+ const status = records[date]?.[id];
+ if(status === "Present" || status === "Sax") return "Present";
+ if(status === "Absent" || status === "Khalad") return "Absent";
+ return "";
+}
+
+function updateDayCounts(){
+ let p=0,a=0,u=0;
+
+ document.querySelectorAll("#attTable select").forEach(sel => {
+  if(sel.value==="Present") p++;
+  else if(sel.value==="Absent") a++;
+  else u++;
+ });
+
+ $("dayPresent").textContent=p;
+ $("dayAbsent").textContent=a;
+ $("dayUnmarked").textContent=u;
+}
+
+function loadAttendance(){
+ const date = $("attDate").value;
+ $("attTable").innerHTML = "";
+ $("attendanceNotice").classList.add("hidden");
+ $("attendanceControls").classList.remove("hidden");
+
+ if(!date){
+  $("attendanceNotice").textContent = "Fadlan dooro taariikh.";
+  $("attendanceNotice").classList.remove("hidden");
+  $("attendanceControls").classList.add("hidden");
+  updateDayCounts();
+  return;
+ }
+
+ if(!isAttendanceDay(date)){
+  $("attendanceNotice").textContent =
+   dayName(date) + " waa maalin fasax ah. Xaadiriska waxaa la sameeyaa Sabti ilaa Arbaco oo keliya.";
+  $("attendanceNotice").classList.remove("hidden");
+  $("attendanceControls").classList.add("hidden");
+
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = 3;
+  td.textContent = "Xaadiris lama samayn karo maalintan.";
+  tr.appendChild(td);
+  $("attTable").appendChild(tr);
+
+  updateDayCounts();
+  return;
+ }
+
+ students.forEach(s => {
+  const tr = document.createElement("tr");
+
+  const id = document.createElement("td");
+  id.textContent = s.id;
+
+  const name = document.createElement("td");
+  name.textContent = s.name;
+
+  const statusCell = document.createElement("td");
+  const group = document.createElement("div");
+  group.className = "attendance-buttons";
+
+  const select = document.createElement("select");
+  select.dataset.id = s.id;
+  select.setAttribute("aria-label","Attendance status");
+
+  [
+   ["","Dooro"],
+   ["Present","✓ Sax"],
+   ["Absent","✗ Khalad"]
+  ].forEach(([value,label]) => {
+   const op = document.createElement("option");
+   op.value = value;
+   op.textContent = label;
+   select.appendChild(op);
+  });
+
+  select.value = getStatus(date,s.id);
+  select.className = "hidden";
+
+  const presentBtn = document.createElement("button");
+  presentBtn.type = "button";
+  presentBtn.textContent = "✓ Sax";
+  presentBtn.className = "att-btn";
+
+  const absentBtn = document.createElement("button");
+  absentBtn.type = "button";
+  absentBtn.textContent = "✗ Khalad";
+  absentBtn.className = "att-btn";
+
+  function refreshButtons(){
+   presentBtn.className = "att-btn" +
+    (select.value==="Present" ? " selected-present" : "");
+   absentBtn.className = "att-btn" +
+    (select.value==="Absent" ? " selected-absent" : "");
+   updateDayCounts();
+  }
+
+  presentBtn.onclick = () => {
+   select.value = "Present";
+   refreshButtons();
+  };
+
+  absentBtn.onclick = () => {
+   select.value = "Absent";
+   refreshButtons();
+  };
+
+  group.append(presentBtn,absentBtn,select);
+  statusCell.appendChild(group);
+  tr.append(id,name,statusCell);
+  $("attTable").appendChild(tr);
+
+  refreshButtons();
+ });
+
+ updateDayCounts();
+}
+
+function markAll(status){
+ const date = $("attDate").value;
+
+ if(!isAttendanceDay(date)){
+  alert("Xaadiriska waxaa la samayn karaa Sabti ilaa Arbaco oo keliya.");
+  return;
+ }
+
+ document.querySelectorAll("#attTable select").forEach(sel => {
+  sel.value = status;
+  const buttons = sel.parentElement.querySelectorAll("button");
+  buttons[0].className = "att-btn" +
+   (status==="Present"?" selected-present":"");
+  buttons[1].className = "att-btn" +
+   (status==="Absent"?" selected-absent":"");
+ });
+
+ updateDayCounts();
+}
+
+function saveAttendance(){
+ const date = $("attDate").value;
+
+ if(!date){
+  alert("Fadlan dooro taariikh.");
+  return;
+ }
+
+ if(!isAttendanceDay(date)){
+  alert("Xaadiriska waxaa la samayn karaa Sabti ilaa Arbaco oo keliya.");
+  return;
+ }
+
+ if(!records[date]) records[date] = {};
+
+ document.querySelectorAll("#attTable select").forEach(sel => {
+  if(sel.value) records[date][sel.dataset.id] = sel.value;
+  else delete records[date][sel.dataset.id];
+ });
+
+ persist();
+ updateDashboard();
+ generateReports();
+ showFollowup();
+ alert("Xadiriska waa la kaydiyey!");
+}
+
+function updateDashboard(){
+ let p=0,a=0;
+
+ if(isAttendanceDay(today())){
+  students.forEach(s => {
+   const status = getStatus(today(),s.id);
+   if(status==="Present") p++;
+   if(status==="Absent") a++;
+  });
+ }
+
+ $("total").textContent = students.length;
+ $("present").textContent = p;
+ $("absent").textContent = a;
+ $("todayPct").textContent =
+  p+a ? Math.round(p/(p+a)*100)+"%" : "0%";
+}
+
+function showFollowup(){
+ const date = $("followDate").value;
+ $("followTable").innerHTML = "";
+ $("followNotice").classList.add("hidden");
+
+ if(!date) return;
+
+ if(!isAttendanceDay(date)){
+  $("followNotice").textContent =
+   dayName(date) + " waa maalin fasax ah. Follow-up waxaa la heli karaa Sabti ilaa Arbaco.";
+  $("followNotice").classList.remove("hidden");
+  return;
+ }
+
+ students.forEach(s => {
+  const status = getStatus(date,s.id);
+  if(!status) return;
+
+  const tr = document.createElement("tr");
+  const values = [date,s.id,s.name,status==="Present"?"✓ Sax":"✗ Khalad"];
+
+  values.forEach((v,i) => {
+   const td = document.createElement("td");
+   td.textContent = v;
+   if(i===3) td.className = status==="Present"?"status-present":"status-absent";
+   tr.appendChild(td);
+  });
+
+  $("followTable").appendChild(tr);
+ });
+}
+
+function fmt(d){
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function datesBetween(start,end){
+ const arr=[];
+ const d=new Date(start+"T12:00:00");
+ const last=new Date(end+"T12:00:00");
+
+ while(d<=last){
+  arr.push(fmt(d));
+  d.setDate(d.getDate()+1);
+ }
+ return arr;
+}
+
+function stats(s,dates){
+ let present=0,absent=0;
+
+ dates.forEach(date => {
+  // Tirso maalmaha Sabti ilaa Arbaco oo keliya
+  if(!isAttendanceDay(date)) return;
+
+  const status=getStatus(date,s.id);
+  if(status==="Present") present++;
+  if(status==="Absent") absent++;
+ });
+
+ const total=present+absent;
+
+ return {
+  present,
+  absent,
+  pct:total ? Math.round(present/total*100) : null
+ };
+}
+
+function generateReports(){
+ const selected=$("reportDate").value;
+ if(!selected)return;
+
+ const d=new Date(selected+"T12:00:00");
+
+ // Toddobaadku wuxuu ka bilaabmaa Sabti,
+ // wuxuuna ku dhammaadaa Arbaco.
+ const day=d.getDay();
+ const daysSinceSaturday=(day+1)%7;
+
+ const saturday=new Date(d);
+ saturday.setDate(d.getDate()-daysSinceSaturday);
+
+ const wednesday=new Date(saturday);
+ wednesday.setDate(saturday.getDate()+4);
+
+ const weekDates=datesBetween(fmt(saturday),fmt(wednesday));
+ $("weekRange").textContent =
+  fmt(saturday)+" ilaa "+fmt(wednesday)+" (Sabti ilaa Arbaco)";
+
+ const monthStart=selected.slice(0,7)+"-01";
+ const year=Number(selected.slice(0,4));
+ const month=Number(selected.slice(5,7));
+ const monthEnd=fmt(new Date(year,month,0));
+ const monthDates=datesBetween(monthStart,monthEnd);
+
+ $("monthRange").textContent=monthStart+" ilaa "+monthEnd;
+
+ renderReport("weeklyTable",weekDates);
+ renderReport("monthlyTable",monthDates);
+}
+
+function renderReport(id,dates){
+ $(id).innerHTML="";
+
+ students.forEach(s => {
+  const r=stats(s,dates);
+  const tr=document.createElement("tr");
+
+  [
+   s.name,
+   r.present,
+   r.absent,
+   r.pct===null?"N/A":r.pct+"%"
+  ].forEach((v,i) => {
+   const td=document.createElement("td");
+   td.textContent=v;
+
+   if(i===3 && r.pct!==null){
+    td.className=r.pct>=75?"status-present":"status-absent";
+   }
+
+   tr.appendChild(td);
+  });
+
+  $(id).appendChild(tr);
+ });
+}
+
+// Backup: soo dejiso xogta ardayda iyo xaadiriska
+function backupData(){
+ const data = {
+  students: students,
+  attendance: records
+ };
+
+ const blob = new Blob(
+  [JSON.stringify(data,null,2)],
+  {type:"application/json"}
+ );
+
+ const url = URL.createObjectURL(blob);
+ const link = document.createElement("a");
+
+ link.href = url;
+ link.download = "student-management-backup.json";
+ document.body.appendChild(link);
+ link.click();
+ link.remove();
+
+ setTimeout(() => URL.revokeObjectURL(url),1000);
+}
+
+// Restore: soo celi xogtii backup-ka
+function restoreData(event){
+ const file = event.target.files[0];
+ if(!file) return;
+
+ const reader = new FileReader();
+
+ reader.onload = function(){
+  try{
+   const data = JSON.parse(reader.result);
+
+   if(
+    !data ||
+    !Array.isArray(data.students) ||
+    !data.attendance ||
+    typeof data.attendance !== "object" ||
+    Array.isArray(data.attendance)
+   ){
+    throw new Error("Backup aan sax ahayn");
+   }
+
+   if(!confirm(
+    "Ma hubtaa inaad soo celinayso xogta? Xogta hadda jirta waa la beddeli doonaa."
+   )){
+    event.target.value="";
+    return;
+   }
+
+   students = data.students;
+   records = data.attendance;
+   editIndex = -1;
+
+   persist();
+   renderStudents();
+   loadAttendance();
+   updateDashboard();
+   generateReports();
+   showFollowup();
+
+   alert("Xogta si guul leh ayaa loo soo celiyey!");
+  }catch(error){
+   alert("Faylka backup-ku sax ma aha ama lama akhrin karo.");
+  }
+
+  event.target.value="";
+ };
+
+ reader.readAsText(file);
+}
+
+// Bilow system-ka
+renderStudents();
+loadAttendance();
+updateDashboard();
+generateReports();
+showFollowup();
+</script>
+
+</body>
+</html>
